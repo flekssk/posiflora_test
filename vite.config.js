@@ -9,7 +9,7 @@ export default defineConfig(({mode}) => {
     return {
         plugins: [
             laravel({
-                input: ['resources/js/app.js'],
+                input: ['resources/js/app.js'], // тот же путь, что в Blade
                 refresh: true,
             }),
             vue(),
@@ -20,14 +20,19 @@ export default defineConfig(({mode}) => {
             },
         },
         build: {
+            // Отключить минификацию (обфускацию)
             minify: isDebug ? false : 'esbuild',
+            // Для Vite 5+ можно отдельно отключить минификацию CSS
             cssMinify: !isDebug,
+            // Источники карт для удобного дебага
             sourcemap: isDebug,
 
+            // Сохранять имена классов/функций даже если минификация включена
             esbuild: {
                 keepNames: true,
             },
 
+            // Убрать хэш из имён файлов, чтобы проще было сопоставлять чанки
             rollupOptions: isDebug
                 ? {
                     output: {
@@ -39,6 +44,7 @@ export default defineConfig(({mode}) => {
                 : undefined,
         },
         css: {
+            // Полезно иметь карты и для стилей
             devSourcemap: true,
         },
     }
