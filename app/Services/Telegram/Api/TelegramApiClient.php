@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Telegram;
 
 use App\Services\Telegram\DTO\TelegramSendMessageDTO;
-use App\Services\ValueObjects\TelegramToken;
+use App\Services\Telegram\ValueObjects\TelegramToken;
 use GuzzleHttp\Client;
 
 readonly class TelegramApiClient
