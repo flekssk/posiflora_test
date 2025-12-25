@@ -7,6 +7,7 @@ namespace Feature\Http;
 use App\Enums\TelegramSendMessageStatusEnum;
 use App\Models\Shop;
 use App\Models\TelegramIntegration;
+use App\Models\TelegramSendLog;
 use App\Models\User;
 use App\Models\UserShop;
 use App\Services\Orders\Actions\Telegram\OrderRetryTelegramNotificationAction;
@@ -43,6 +44,10 @@ class OrderCreationTest extends TestCase
             'customer_name' => 'Test Customer',
             'total' => 100.00,
         ]);
+
+        $response = $this->post(route('shops.telegram.status', ['shopId' => $shop->id]));
+
+        $response->assertJsonCount(0, 'data');
     }
 
     public function testCreateOrderWithDisabledTelegramIntegration()
@@ -53,7 +58,7 @@ class OrderCreationTest extends TestCase
 
         $user = User::factory()->create();
         $shop = $this->makeShop($user);
-        TelegramIntegration::factory()->create(['shop_id' => $shop->id, 'enabled' => false]);
+        $integration = TelegramIntegration::factory()->create(['shop_id' => $shop->id, 'enabled' => false]);
 
         $response = $this->post(
             route('orders.create', ['shopId' => $shop->id]),
@@ -70,6 +75,22 @@ class OrderCreationTest extends TestCase
             'customer_name' => 'Test Customer',
             'total' => 100.00,
         ]);
+
+        $response = $this->post(route('shops.telegram.status', ['shopId' => $shop->id]));
+
+        $response->assertJsonCount(1, 'data');
+        $this->assertEquals(
+            [
+                [
+                    'success_count' => 0,
+                    'failed_count' => 0,
+                    'last_sent' => null,
+                    'enabled' => true,
+                    'chat_id' => $integration->chat_id,
+                ]
+            ],
+            $response['data'][0]
+        );
     }
 
     public function testCreateOrderWithEnabledTelegramIntegration()
@@ -118,6 +139,18 @@ class OrderCreationTest extends TestCase
 
     public function testCreateOrderWithEnabledTelegramIntegrationAndSendLogFailed()
     {
+        TelegramServiceFacade::partialMock()
+            ->shouldReceive('sendMessage')
+            ->once()
+            ->withArgs(function (TelegramSendMessageDTO $dto, TelegramToken $token) use ($integration) {
+                return $dto->text === 'Has new order'
+                    && $dto->chatId === $integration->chat_id
+                    && $integration->token === $token;
+            })
+            ->andReturn(
+                new TelegramSendMessageResultDTO(false, 'fail')
+            );
+
         $user = User::factory()->create();
         $shop = $this->makeShop($user);
         $integration = TelegramIntegration::factory()->create([
@@ -143,23 +176,35 @@ class OrderCreationTest extends TestCase
             'total' => 100.00,
         ]);
 
-        TelegramServiceFacade::partialMock()
-            ->shouldReceive('sendMessage')
-            ->once()
-            ->withArgs(function (TelegramSendMessageDTO $dto, TelegramToken $token) use ($integration) {
-                return $dto->text === 'Has new order'
-                    && $dto->chatId === $integration->chat_id
-                    && $integration->token === $token;
-            })
-            ->andReturn(
-                new TelegramSendMessageResultDTO(false, 'fail')
-            );
-
         $this->assertDatabaseHas('telegram_send_logs', [
             'telegram_integration_id' => $shop->id,
             'message' => 'fail',
             'status' => TelegramSendMessageStatusEnum::FAILED
         ]);
+
+        $log = TelegramSendLog::query()
+            ->where([
+                'telegram_integration_id' => $shop->id,
+                'message' => 'fail',
+                'status' => TelegramSendMessageStatusEnum::FAILED
+            ])
+            ->first();
+
+        $response = $this->post(route('shops.telegram.status', ['shopId' => $shop->id]));
+
+        $response->assertJsonCount(1, 'data');
+        $this->assertEquals(
+            [
+                [
+                    'success_count' => 0,
+                    'failed_count' => 1,
+                    'last_sent' => $log->created_at,
+                    'enabled' => true,
+                    'chat_id' => $integration->chat_id,
+                ]
+            ],
+            $response['data'][0]
+        );
 
         TelegramServiceFacade::partialMock()
             ->shouldReceive('sendMessage')
@@ -181,6 +226,32 @@ class OrderCreationTest extends TestCase
             'status' => TelegramSendMessageStatusEnum::SENT
         ]);
 
+        $log = TelegramSendLog::query()
+            ->where(
+                [
+                    'telegram_integration_id' => $shop->id,
+                    'message' => 'success',
+                    'status' => TelegramSendMessageStatusEnum::SENT
+                ]
+            )
+            ->first();
+
+
+        $response = $this->post(route('shops.telegram.status', ['shopId' => $shop->id]));
+
+        $response->assertJsonCount(1, 'data');
+        $this->assertEquals(
+            [
+                [
+                    'success_count' => 1,
+                    'failed_count' => 1,
+                    'last_sent' => $log->created_at,
+                    'enabled' => true,
+                    'chat_id' => $integration->chat_id,
+                ]
+            ],
+            $response['data'][0]
+        );
     }
 
     private function makeShop(User $user): Shop
