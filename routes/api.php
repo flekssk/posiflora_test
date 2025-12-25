@@ -19,7 +19,7 @@ Route::prefix('v1')->group(function () {
         Route::post('{shopId}/telegram/status', TelegramIntegrationCreateAction::class)
             ->name('shops.telegram.telegram');
         Route::prefix('orders')->group(function () {
-            Route::post('', OrderCreateAction::class);
+            Route::post('', OrderCreateAction::class)->name('orders.create');
         });
     });
 });
