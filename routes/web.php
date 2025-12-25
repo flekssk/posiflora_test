@@ -2,6 +2,7 @@
 
 use App\Models\Shop;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -23,10 +24,16 @@ Route::middleware([
         return Inertia::render('Dashboard');
     })->name('dashboard');
 
-    Route::get('shops/edit/{shopId}/growth/telegram', function (Shop $shop) {
+    Route::get('shops/edit/{shopId}/growth/telegram', function (int $shopId, Request $request) {
+        $shop = Shop::findOrFail($shopId);
+
+        if (!$request->user()->allowToChangeShop($shop)) {
+            return response()->redirectToRoute('dashboard');
+        }
+
         Inertia::render('Shops/TelegramIntegration', [
-            'shop' => $shop,
-            'integrations' => $shop->telegramIntegrations,
+            'shop' => $shop->toArray(),
+            'integrations' => $shop->telegramIntegrations->toArray(),
         ]);
     });
 });

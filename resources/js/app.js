@@ -37,6 +37,10 @@ createInertiaApp({
             .use(createPinia())
             .use(
                 ZiggyVue,
+                {
+                    ...Ziggy,
+                    url: 'https://localhost',
+                }
             )
             .use(ToastService)
             .mount(el);
