@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Crypt;
 
 class TelegramIntegration extends Model
@@ -21,5 +22,10 @@ class TelegramIntegration extends Model
                 fn (string $token) => Crypt::encryptString($token),
             )
         ];
+    }
+
+    public function logs(): HasMany|TelegramIntegration
+    {
+        return $this->hasMany(TelegramSendLog::class);
     }
 }

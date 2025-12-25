@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'telegram' => [
+        'orders_notifications' => [
+            'max_attempts_count' => env('TELEGRAM_MAX_ATTEMPTS', 5),
+        ]
+    ]
 ];
